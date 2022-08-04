@@ -1,0 +1,116 @@
+{
+    "schemaName": "signoz_index_v2_schema",
+    "dimensionFieldSpecs": [
+      {
+        "name": "traceID",
+        "dataType": "STRING"
+      },
+      {
+        "name": "spanID",
+        "dataType": "STRING"
+      },
+      {
+        "name": "parentSpanID",
+        "dataType": "STRING"
+      },
+      {
+        "name": "serviceName",
+        "dataType": "STRING"
+      },
+      {
+        "name": "name",
+        "dataType": "STRING"
+      },
+      {
+        "name": "kind",
+        "dataType": "INT"
+      },
+      {
+        "name": "durationNanos",
+        "dataType": "LONG"
+      },
+      {
+        "name": "statusCode",
+        "dataType": "INT"
+      },
+      {
+        "name": "externalHttpMethod",
+        "dataType": "STRING"
+      },
+      {
+        "name": "externalHttpUrl",
+        "dataType": "STRING"
+      },
+      {
+        "name": "component",
+        "dataType": "STRING"
+      },
+      {
+        "name": "dbSystem",
+        "dataType": "STRING"
+      },
+      {
+        "name": "dbName",
+        "dataType": "STRING"
+      },
+      {
+        "name": "dbOperation",
+        "dataType": "STRING"
+      },
+      {
+        "name": "peerService",
+        "dataType": "STRING"
+      },
+      {
+        "name": "events",
+        "dataType": "STRING",
+        "singleValueField": false
+      },
+      {
+        "name": "httpMethod",
+        "dataType": "STRING"
+      },
+      {
+        "name": "httpUrl",
+        "dataType": "STRING"
+      },
+      {
+        "name": "httpCode",
+        "dataType": "STRING"
+      },
+      {
+        "name": "httpRoute",
+        "dataType": "STRING"
+      },
+      {
+        "name": "httpHost",
+        "dataType": "STRING"
+      },
+      {
+        "name": "msgSystem",
+        "dataType": "STRING"
+      },
+      {
+        "name": "msgOperation",
+        "dataType": "STRING"
+      },
+      {
+        "name": "hasError",
+        "dataType": "BOOLEAN"
+      },
+      {
+        "name": "tagMap",
+        "dataType": "JSON"
+      },
+      {
+        "name": "dbOperation",
+        "dataType": "STRING"
+      }
+    ],
+    "dateTimeFieldSpecs": [{
+      "name": "timestamp",
+      "dataType": "LONG",
+      "format" : "1:MILLISECONDS:EPOCH",
+      "granularity": "1:MILLISECONDS"
+    }]
+  }
