@@ -353,7 +353,7 @@ func (s *storage) writeModel(ctx context.Context, structuredSpan *Span) error {
 	}
 
 	data := map[string]interface{}{
-		"timestamp": int64(structuredSpan.StartTimeUnixNano) / int64(time.Millisecond),
+		"timestamp": int64(structuredSpan.StartTimeUnixNano),
 		"traceID":   structuredSpan.TraceId,
 		"model":     string(span),
 	}
@@ -382,7 +382,7 @@ func (s *storage) writeModel(ctx context.Context, structuredSpan *Span) error {
 
 func (s *storage) writeIndex(ctx context.Context, structuredSpan *Span) error {
 	data := map[string]interface{}{
-		"timestamp":          int64(structuredSpan.StartTimeUnixNano) / int64(time.Millisecond),
+		"timestamp":          int64(structuredSpan.StartTimeUnixNano),
 		"traceID":            structuredSpan.TraceId,
 		"spanID":             structuredSpan.SpanId,
 		"parentSpanID":       structuredSpan.ParentSpanId,
@@ -439,7 +439,7 @@ func (s *storage) writeError(ctx context.Context, structuredSpan *Span) error {
 	}
 
 	data := map[string]interface{}{
-		"timestamp":           int64(structuredSpan.ErrorEvent.TimeUnixNano) / int64(time.Millisecond),
+		"timestamp":           int64(structuredSpan.ErrorEvent.TimeUnixNano),
 		"errorID":             structuredSpan.ErrorID,
 		"groupID":             structuredSpan.ErrorGroupID,
 		"traceID":             structuredSpan.TraceId,
