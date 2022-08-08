@@ -46,6 +46,7 @@ import (
 	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/newrelicexporter"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/opencensusexporter"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/parquetexporter"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/pinottracesexporter"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/prometheusexporter"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/prometheusremotewriteexporter"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/sapmexporter"
@@ -236,6 +237,7 @@ func Components() (component.Factories, error) {
 		carbonexporter.NewFactory(),
 		clickhousemetricsexporter.NewFactory(),
 		clickhousetracesexporter.NewFactory(),
+		pinottracesexporter.NewFactory(),
 		clickhouseexporter.NewFactory(),
 		coralogixexporter.NewFactory(),
 		datadogexporter.NewFactory(),

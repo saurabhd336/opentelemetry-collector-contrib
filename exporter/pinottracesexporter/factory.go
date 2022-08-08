@@ -29,7 +29,10 @@ const (
 
 func createDefaultConfig() config.Exporter {
 	// opts := NewOptions(primaryNamespace, archiveNamespace)
-	return nil
+	return &Config{
+		// Options:          *opts,
+		ExporterSettings: config.NewExporterSettings(config.NewComponentID(typeStr)),
+	}
 }
 
 // NewFactory creates a factory for pinot traces exporter

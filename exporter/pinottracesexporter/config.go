@@ -23,6 +23,7 @@ type Config struct {
 	config.ExporterSettings `mapstructure:",squash"` // squash ensures fields are correctly decoded in embedded struct
 
 	Datasource string `mapstructure:"datasource"`
+	KafkaUrl   string `mapstructure:"kafka"`
 }
 
 var _ config.Exporter = (*Config)(nil)

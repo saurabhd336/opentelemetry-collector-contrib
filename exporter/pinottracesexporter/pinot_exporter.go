@@ -22,8 +22,10 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
+	"github.com/segmentio/kafka-go"
 	"go.opentelemetry.io/collector/config"
 	"go.opentelemetry.io/collector/model/pdata"
 	conventions "go.opentelemetry.io/collector/model/semconv/v1.5.0"
@@ -34,18 +36,53 @@ import (
 func newExporter(cfg config.Exporter, logger *zap.Logger) (*storage, error) {
 
 	pinotConfig := cfg.(*Config)
-	storage := storage{pinotControllerUrl: pinotConfig.Datasource}
+	storage := storage{pinotControllerUrl: pinotConfig.Datasource, kafkaUrl: pinotConfig.KafkaUrl}
 	storage.init()
 
 	return &storage, nil
 }
 
 func (s *storage) init() {
-	// We create the different tables here
+	// 1) Create schemas
+	// 2) Create tables
+	// 3) Initialize kafka client
+	// 4) Create kafka topics
+
+	dialer := &kafka.Dialer{
+		Timeout: 10 * time.Second,
+	}
+
+	s.spanKafkaWriter = kafka.NewWriter(kafka.WriterConfig{
+		Brokers:      []string{s.kafkaUrl},
+		Topic:        "signoz-spans-topic",
+		Dialer:       dialer,
+		WriteTimeout: 10 * time.Second,
+		ReadTimeout:  10 * time.Second,
+	})
+
+	s.indexKafkaWriter = kafka.NewWriter(kafka.WriterConfig{
+		Brokers:      []string{s.kafkaUrl},
+		Topic:        "signoz-index-v2-topic",
+		Dialer:       dialer,
+		WriteTimeout: 10 * time.Second,
+		ReadTimeout:  10 * time.Second,
+	})
+
+	s.errorKafkaWriter = kafka.NewWriter(kafka.WriterConfig{
+		Brokers:      []string{s.kafkaUrl},
+		Topic:        "signoz-error-index-v2-topic",
+		Dialer:       dialer,
+		WriteTimeout: 10 * time.Second,
+		ReadTimeout:  10 * time.Second,
+	})
 }
 
 type storage struct {
 	pinotControllerUrl string
+	kafkaUrl           string
+	spanKafkaWriter    *kafka.Writer
+	indexKafkaWriter   *kafka.Writer
+	errorKafkaWriter   *kafka.Writer
 }
 
 func makeJaegerProtoReferences(
@@ -283,14 +320,164 @@ func newStructuredSpan(otelSpan pdata.Span, ServiceName string, resource pdata.R
 
 // traceDataPusher implements OTEL exporterhelper.traceDataPusher
 
-func (s *storage) write(structuredSpan *Span) error {
+func (s *storage) write(ctx context.Context, structuredSpan *Span) error {
 	// This is where we need to write span into pinot
-	span, err := json.Marshal(structuredSpan.TraceModel)
-	fmt.Print("span %v", span)
 
-	// Use write API to write this span
-	// s.pinotControllerUrl
-	return err
+	if s.spanKafkaWriter != nil {
+		if err := s.writeModel(ctx, structuredSpan); err != nil {
+			return err
+		}
+	}
+
+	if s.indexKafkaWriter != nil {
+		if err := s.writeIndex(ctx, structuredSpan); err != nil {
+			return err
+		}
+	}
+
+	if s.errorKafkaWriter != nil {
+		if err := s.writeError(ctx, structuredSpan); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (s *storage) writeModel(ctx context.Context, structuredSpan *Span) error {
+	span, err := json.Marshal(structuredSpan.TraceModel)
+
+	if err != nil {
+		zap.S().Error("Error in writing spans to pinot: ", err)
+		return err
+	}
+
+	data := map[string]interface{}{
+		"timestamp": int64(structuredSpan.StartTimeUnixNano) / int64(time.Millisecond),
+		"traceID":   structuredSpan.TraceId,
+		"model":     string(span),
+	}
+
+	dataJsonBytes, dataMarshallErr := json.Marshal(data)
+
+	if dataMarshallErr != nil {
+		zap.S().Error("Error in writing spans to pinot: ", dataMarshallErr)
+		return dataMarshallErr
+	}
+
+	kafkaWriteError := s.spanKafkaWriter.WriteMessages(ctx, kafka.Message{
+		Key: []byte(strconv.Itoa(1)),
+		// create an arbitrary message payload for the value
+		Value: dataJsonBytes,
+		Time:  time.Now(),
+	})
+
+	if kafkaWriteError != nil {
+		zap.S().Error("Error in writing spans to pinot: ", kafkaWriteError)
+		return kafkaWriteError
+	}
+
+	return nil
+}
+
+func (s *storage) writeIndex(ctx context.Context, structuredSpan *Span) error {
+	data := map[string]interface{}{
+		"timestamp":          int64(structuredSpan.StartTimeUnixNano) / int64(time.Millisecond),
+		"traceID":            structuredSpan.TraceId,
+		"spanID":             structuredSpan.SpanId,
+		"parentSpanID":       structuredSpan.ParentSpanId,
+		"serviceName":        structuredSpan.ServiceName,
+		"name":               structuredSpan.Name,
+		"kind":               structuredSpan.Kind,
+		"durationNanos":      structuredSpan.DurationNano,
+		"statusCode":         structuredSpan.StatusCode,
+		"externalHttpMethod": structuredSpan.ExternalHttpMethod,
+		"externalHttpUrl":    structuredSpan.ExternalHttpUrl,
+		"component":          structuredSpan.Component,
+		"dbSystem":           structuredSpan.DBSystem,
+		"dbName":             structuredSpan.DBName,
+		"dbOperation":        structuredSpan.DBOperation,
+		"peerService":        structuredSpan.PeerService,
+		"events":             structuredSpan.Events,
+		"httpMethod":         structuredSpan.HttpMethod,
+		"httpUrl":            structuredSpan.HttpUrl,
+		"httpCode":           structuredSpan.HttpCode,
+		"httpRoute":          structuredSpan.HttpRoute,
+		"httpHost":           structuredSpan.HttpHost,
+		"msgSystem":          structuredSpan.MsgSystem,
+		"msgOperation":       structuredSpan.MsgOperation,
+		"hasError":           structuredSpan.HasError,
+		"tagMap":             structuredSpan.TagMap,
+	}
+
+	dataJsonBytes, dataMarshallErr := json.Marshal(data)
+
+	if dataMarshallErr != nil {
+		zap.S().Error("Error in writing spans to pinot: ", dataMarshallErr)
+		return dataMarshallErr
+	}
+
+	kafkaWriteError := s.indexKafkaWriter.WriteMessages(ctx, kafka.Message{
+		Key: []byte(strconv.Itoa(1)),
+		// create an arbitrary message payload for the value
+		Value: dataJsonBytes,
+		Time:  time.Now(),
+	})
+
+	if kafkaWriteError != nil {
+		zap.S().Error("Error in writing spans to pinot: ", kafkaWriteError)
+		return kafkaWriteError
+	}
+
+	return nil
+}
+
+func (s *storage) writeError(ctx context.Context, structuredSpan *Span) error {
+
+	if structuredSpan.ErrorEvent.Name == "" {
+		return nil
+	}
+
+	data := map[string]interface{}{
+		"timestamp":           int64(structuredSpan.ErrorEvent.TimeUnixNano) / int64(time.Millisecond),
+		"errorID":             structuredSpan.ErrorID,
+		"groupID":             structuredSpan.ErrorGroupID,
+		"traceID":             structuredSpan.TraceId,
+		"spanID":              structuredSpan.SpanId,
+		"serviceName":         structuredSpan.ServiceName,
+		"exceptionType":       structuredSpan.ErrorEvent.AttributeMap["exception.type"],
+		"exceptionMessage":    structuredSpan.ErrorEvent.AttributeMap["exception.message"],
+		"exceptionStacktrace": structuredSpan.ErrorEvent.AttributeMap["exception.stacktrace"],
+		"exceptionEscaped":    stringToBool(structuredSpan.ErrorEvent.AttributeMap["exception.escaped"]),
+	}
+
+	dataJsonBytes, dataMarshallErr := json.Marshal(data)
+
+	if dataMarshallErr != nil {
+		zap.S().Error("Error in writing spans to pinot: ", dataMarshallErr)
+		return dataMarshallErr
+	}
+
+	kafkaWriteError := s.errorKafkaWriter.WriteMessages(ctx, kafka.Message{
+		Key: []byte(strconv.Itoa(1)),
+		// create an arbitrary message payload for the value
+		Value: dataJsonBytes,
+		Time:  time.Now(),
+	})
+
+	if kafkaWriteError != nil {
+		zap.S().Error("Error in writing spans to pinot: ", kafkaWriteError)
+		return kafkaWriteError
+	}
+
+	return nil
+}
+
+func stringToBool(s string) bool {
+	if strings.ToLower(s) == "true" {
+		return true
+	}
+	return false
 }
 
 func (s *storage) pushTraceData(ctx context.Context, td pdata.Traces) error {
@@ -313,7 +500,7 @@ func (s *storage) pushTraceData(ctx context.Context, td pdata.Traces) error {
 				span := spans.At(k)
 				// traceID := hex.EncodeToString(span.TraceID())
 				structuredSpan := newStructuredSpan(span, serviceName, rs.Resource())
-				err := s.write(structuredSpan)
+				err := s.write(ctx, structuredSpan)
 				if err != nil {
 					zap.S().Error("Error in writing spans to pinot: ", err)
 				}

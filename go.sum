@@ -2110,6 +2110,7 @@ github.com/seccomp/libseccomp-golang v0.9.1/go.mod h1:GbW5+tmTXfcxTToHLXlScSlAvW
 github.com/securego/gosec v0.0.0-20200203094520-d13bb6d2420c/go.mod h1:gp0gaHj0WlmPh9BdsTmo1aq6C27yIPWdxCKGFGdVKBE=
 github.com/securego/gosec/v2 v2.6.1/go.mod h1:I76p3NTHBXsGhybUW+cEQ692q2Vp+A0Z6ZLzDIZy+Ao=
 github.com/segmentio/kafka-go v0.1.0/go.mod h1:X6itGqS9L4jDletMsxZ7Dz+JFWxM6JHfPOCvTvk+EJo=
+github.com/segmentio/kafka-go v0.2.0 h1:HtCSf6B4gN/87yc5qTl7WsxPKQIIGXLPPM1bMCPOsoY=
 github.com/segmentio/kafka-go v0.2.0/go.mod h1:X6itGqS9L4jDletMsxZ7Dz+JFWxM6JHfPOCvTvk+EJo=
 github.com/sergey-telpuk/migrate/v4 v4.15.3-0.20220303065225-d5ae59d12ff7 h1:oAMuQOlrIBBwDqxyPo+pZAf829w6zKfcB7qGI9l91og=
 github.com/sergey-telpuk/migrate/v4 v4.15.3-0.20220303065225-d5ae59d12ff7/go.mod h1:m0OsHoAhCA9OlUH4aSxzM7k9cLmhvXjLyCsxfvC9WHU=
