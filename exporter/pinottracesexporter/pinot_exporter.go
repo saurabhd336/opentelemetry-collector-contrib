@@ -22,10 +22,9 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
-	"time"
 
+	"github.com/Shopify/sarama"
 	"github.com/google/uuid"
-	"github.com/segmentio/kafka-go"
 	"go.opentelemetry.io/collector/config"
 	"go.opentelemetry.io/collector/model/pdata"
 	conventions "go.opentelemetry.io/collector/model/semconv/v1.5.0"
@@ -48,41 +47,24 @@ func (s *storage) init() {
 	// 3) Initialize kafka client
 	// 4) Create kafka topics
 
-	dialer := &kafka.Dialer{
-		Timeout: 10 * time.Second,
+	config := sarama.NewConfig()
+	config.Producer.Partitioner = sarama.NewRandomPartitioner
+	config.Producer.RequiredAcks = sarama.WaitForAll
+	config.Producer.Return.Successes = true
+
+	spanKafkaProducer, err := sarama.NewSyncProducer([]string{s.kafkaUrl}, config)
+
+	if err != nil {
+		zap.S().Error("Couldn't create kafka client?")
 	}
 
-	s.spanKafkaWriter = kafka.NewWriter(kafka.WriterConfig{
-		Brokers:      []string{s.kafkaUrl},
-		Topic:        "signoz-spans-topic",
-		Dialer:       dialer,
-		WriteTimeout: 10 * time.Second,
-		ReadTimeout:  10 * time.Second,
-	})
-
-	s.indexKafkaWriter = kafka.NewWriter(kafka.WriterConfig{
-		Brokers:      []string{s.kafkaUrl},
-		Topic:        "signoz-index-v2-topic",
-		Dialer:       dialer,
-		WriteTimeout: 10 * time.Second,
-		ReadTimeout:  10 * time.Second,
-	})
-
-	s.errorKafkaWriter = kafka.NewWriter(kafka.WriterConfig{
-		Brokers:      []string{s.kafkaUrl},
-		Topic:        "signoz-error-index-v2-topic",
-		Dialer:       dialer,
-		WriteTimeout: 10 * time.Second,
-		ReadTimeout:  10 * time.Second,
-	})
+	s.kafkaProducer = spanKafkaProducer
 }
 
 type storage struct {
 	pinotControllerUrl string
 	kafkaUrl           string
-	spanKafkaWriter    *kafka.Writer
-	indexKafkaWriter   *kafka.Writer
-	errorKafkaWriter   *kafka.Writer
+	kafkaProducer      sarama.SyncProducer
 }
 
 func makeJaegerProtoReferences(
@@ -323,19 +305,15 @@ func newStructuredSpan(otelSpan pdata.Span, ServiceName string, resource pdata.R
 func (s *storage) write(ctx context.Context, structuredSpan *Span) error {
 	// This is where we need to write span into pinot
 
-	if s.spanKafkaWriter != nil {
+	if s.kafkaProducer != nil {
 		if err := s.writeModel(ctx, structuredSpan); err != nil {
 			return err
 		}
-	}
 
-	if s.indexKafkaWriter != nil {
 		if err := s.writeIndex(ctx, structuredSpan); err != nil {
 			return err
 		}
-	}
 
-	if s.errorKafkaWriter != nil {
 		if err := s.writeError(ctx, structuredSpan); err != nil {
 			return err
 		}
@@ -365,16 +343,19 @@ func (s *storage) writeModel(ctx context.Context, structuredSpan *Span) error {
 		return dataMarshallErr
 	}
 
-	kafkaWriteError := s.spanKafkaWriter.WriteMessages(ctx, kafka.Message{
-		Key: []byte(strconv.Itoa(1)),
-		// create an arbitrary message payload for the value
-		Value: dataJsonBytes,
-		Time:  time.Now(),
-	})
+	msg := &sarama.ProducerMessage{
+		Topic:     "signoz-spans-topic",
+		Partition: -1,
+		Value:     sarama.StringEncoder(string(dataJsonBytes)),
+	}
 
-	if kafkaWriteError != nil {
-		zap.S().Error("Error in writing spans to pinot: ", kafkaWriteError)
-		return kafkaWriteError
+	partition, offset, err := s.kafkaProducer.SendMessage(msg)
+
+	if err != nil {
+		zap.S().Error("Error in writing spans to pinot: ", err)
+		return err
+	} else {
+		zap.S().Info("Send message to partition %s, offset %s", partition, offset)
 	}
 
 	return nil
@@ -389,7 +370,7 @@ func (s *storage) writeIndex(ctx context.Context, structuredSpan *Span) error {
 		"serviceName":        structuredSpan.ServiceName,
 		"name":               structuredSpan.Name,
 		"kind":               structuredSpan.Kind,
-		"durationNanos":      structuredSpan.DurationNano,
+		"durationNano":       structuredSpan.DurationNano,
 		"statusCode":         structuredSpan.StatusCode,
 		"externalHttpMethod": structuredSpan.ExternalHttpMethod,
 		"externalHttpUrl":    structuredSpan.ExternalHttpUrl,
@@ -408,6 +389,12 @@ func (s *storage) writeIndex(ctx context.Context, structuredSpan *Span) error {
 		"msgOperation":       structuredSpan.MsgOperation,
 		"hasError":           structuredSpan.HasError,
 		"tagMap":             structuredSpan.TagMap,
+		"gRPCMethod":         structuredSpan.GRPCMethod,
+		"gRPCCode":           structuredSpan.GRPCCode,
+		"rpcSystem":          structuredSpan.RPCSystem,
+		"rpcService":         structuredSpan.RPCService,
+		"rpcMethod":          structuredSpan.RPCMethod,
+		"responseStatusCode": structuredSpan.ResponseStatusCode,
 	}
 
 	dataJsonBytes, dataMarshallErr := json.Marshal(data)
@@ -417,16 +404,19 @@ func (s *storage) writeIndex(ctx context.Context, structuredSpan *Span) error {
 		return dataMarshallErr
 	}
 
-	kafkaWriteError := s.indexKafkaWriter.WriteMessages(ctx, kafka.Message{
-		Key: []byte(strconv.Itoa(1)),
-		// create an arbitrary message payload for the value
-		Value: dataJsonBytes,
-		Time:  time.Now(),
-	})
+	msg := &sarama.ProducerMessage{
+		Topic:     "signoz-index-v2-topic",
+		Partition: -1,
+		Value:     sarama.StringEncoder(string(dataJsonBytes)),
+	}
 
-	if kafkaWriteError != nil {
-		zap.S().Error("Error in writing spans to pinot: ", kafkaWriteError)
-		return kafkaWriteError
+	partition, offset, err := s.kafkaProducer.SendMessage(msg)
+
+	if err != nil {
+		zap.S().Error("Error in writing spans to pinot: ", err)
+		return err
+	} else {
+		zap.S().Info("Send message to partition %s, offset %s", partition, offset)
 	}
 
 	return nil
@@ -458,16 +448,19 @@ func (s *storage) writeError(ctx context.Context, structuredSpan *Span) error {
 		return dataMarshallErr
 	}
 
-	kafkaWriteError := s.errorKafkaWriter.WriteMessages(ctx, kafka.Message{
-		Key: []byte(strconv.Itoa(1)),
-		// create an arbitrary message payload for the value
-		Value: dataJsonBytes,
-		Time:  time.Now(),
-	})
+	msg := &sarama.ProducerMessage{
+		Topic:     "signoz-error-index-v2-topic",
+		Partition: -1,
+		Value:     sarama.StringEncoder(string(dataJsonBytes)),
+	}
 
-	if kafkaWriteError != nil {
-		zap.S().Error("Error in writing spans to pinot: ", kafkaWriteError)
-		return kafkaWriteError
+	partition, offset, err := s.kafkaProducer.SendMessage(msg)
+
+	if err != nil {
+		zap.S().Error("Error in writing spans to pinot: ", err)
+		return err
+	} else {
+		zap.S().Info("Send message to partition %s, offset %s", partition, offset)
 	}
 
 	return nil
