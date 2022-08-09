@@ -101,6 +101,30 @@
       {
         "name": "tagMap",
         "dataType": "JSON"
+      },
+      {
+        "name": "gRPCMethod",
+        "dataType": "STRING"
+      },
+      {
+        "name": "gRPCCode",
+        "dataType": "STRING"
+      },
+      {
+        "name": "rpcSystem",
+        "dataType": "STRING"
+      },
+      {
+        "name": "rpcService",
+        "dataType": "STRING"
+      },
+      {
+        "name": "rpcMethod",
+        "dataType": "STRING"
+      },
+      {
+        "name": "responseStatusCode",
+        "dataType": "STRING"
       }
     ],
     "dateTimeFieldSpecs": [{
