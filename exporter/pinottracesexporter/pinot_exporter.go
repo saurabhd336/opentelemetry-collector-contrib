@@ -370,7 +370,7 @@ func (s *storage) writeIndex(ctx context.Context, structuredSpan *Span) error {
 		"serviceName":        structuredSpan.ServiceName,
 		"name":               structuredSpan.Name,
 		"kind":               structuredSpan.Kind,
-		"durationNano":       structuredSpan.DurationNano,
+		"durationNanos":      structuredSpan.DurationNano,
 		"statusCode":         structuredSpan.StatusCode,
 		"externalHttpMethod": structuredSpan.ExternalHttpMethod,
 		"externalHttpUrl":    structuredSpan.ExternalHttpUrl,
