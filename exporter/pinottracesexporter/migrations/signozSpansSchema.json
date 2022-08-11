@@ -8,7 +8,8 @@
         },
         {
             "name": "model",
-            "dataType": "STRING"
+            "dataType": "STRING",
+            "maxLength": 1000000
         }
     ],
     "dateTimeFieldSpecs":
