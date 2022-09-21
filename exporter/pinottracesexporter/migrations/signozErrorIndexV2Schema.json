@@ -1,0 +1,47 @@
+{
+    "schemaName": "signoz_error_index_v2_schema",
+    "dimensionFieldSpecs": [
+      {
+        "name": "errorID",
+        "dataType": "STRING"
+      },
+      {
+        "name": "groupID",
+        "dataType": "STRING"
+      },
+      {
+        "name": "traceID",
+        "dataType": "STRING"
+      },
+      {
+        "name": "spanID",
+        "dataType": "STRING"
+      },
+      {
+        "name": "serviceName",
+        "dataType": "STRING"
+      },
+      {
+        "name": "exceptionType",
+        "dataType": "STRING"
+      },
+      {
+        "name": "exceptionMessage",
+        "dataType": "STRING"
+      },
+      {
+        "name": "exceptionStacktrace",
+        "dataType": "STRING"
+      },
+      {
+        "name": "exceptionEscaped",
+        "dataType": "BOOLEAN"
+      }
+    ],
+    "dateTimeFieldSpecs": [{
+      "name": "timestamp",
+      "dataType": "LONG",
+      "format" : "1:NANOSECONDS:EPOCH",
+      "granularity": "1:NANOSECONDS"
+    }]
+  }

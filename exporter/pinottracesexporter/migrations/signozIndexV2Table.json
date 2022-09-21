@@ -1,0 +1,29 @@
+{
+    "tableName": "signoz_index_v2",
+    "tableType": "REALTIME",
+    "segmentsConfig": {
+      "timeColumnName": "timestamp",
+      "timeType": "MILLISECONDS",
+      "schemaName": "signoz_index_v2_schema",
+      "replicasPerPartition": "1"
+    },
+    "tenants": {},
+    "tableIndexConfig": {
+      "loadMode": "MMAP",
+      "streamConfigs": {
+        "streamType": "kafka",
+        "stream.kafka.consumer.type": "lowlevel",
+        "stream.kafka.topic.name": "signoz-index-v2-topic",
+        "stream.kafka.decoder.class.name": "org.apache.pinot.plugin.stream.kafka.KafkaJSONMessageDecoder",
+        "stream.kafka.consumer.factory.class.name": "org.apache.pinot.plugin.stream.kafka20.KafkaConsumerFactory",
+        "stream.kafka.broker.list": "localhost:9876",
+        "realtime.segment.flush.threshold.rows": "10000",
+        "realtime.segment.flush.threshold.time": "1m",
+        "realtime.segment.flush.threshold.segment.size": "50M",
+        "stream.kafka.consumer.prop.auto.offset.reset": "smallest"
+      }
+    },
+    "metadata": {
+      "customConfigs": {}
+    }
+  }

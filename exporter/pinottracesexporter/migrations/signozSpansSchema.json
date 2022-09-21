@@ -1,0 +1,24 @@
+{
+    "schemaName": "signoz_spans_schema",
+    "dimensionFieldSpecs":
+    [
+        {
+            "name": "traceID",
+            "dataType": "STRING"
+        },
+        {
+            "name": "model",
+            "dataType": "STRING",
+            "maxLength": 1000000
+        }
+    ],
+    "dateTimeFieldSpecs":
+    [
+        {
+            "name": "timestamp",
+            "dataType": "LONG",
+            "format": "1:NANOSECONDS:EPOCH",
+            "granularity": "1:NANOSECONDS"
+        }
+    ]
+}

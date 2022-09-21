@@ -1,0 +1,30 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+      http:
+  jaeger:
+    protocols:
+      grpc:
+      thrift_http:
+
+processors:
+  batch:
+    send_batch_size: 1000
+    timeout: 1s
+
+extensions:
+  health_check: {}
+  zpages: {}
+exporters:
+  pinottraces:
+    datasource: http://localhost:9000/
+    kafka: localhost:9876
+
+service:
+  extensions: [health_check, zpages]
+  pipelines:
+    traces:
+      receivers: [jaeger, otlp]
+      processors: [batch]
+      exporters: [pinottraces]
